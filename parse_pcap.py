@@ -5,7 +5,7 @@ import csv
 import os
 
 
-malicious_ips = {}
+device_ips = {}
 flows = {}
 packets_list = []
 PACKET_LEN = 500
@@ -17,8 +17,8 @@ def rawbyte_callback(packet):
 	if TCP not in packet and UDP not in packet and ICMP not in packet:
 		return
 
-	global malicious_ips
-	if packet[IP].src in malicious_ips or packet[IP].dst in malicious_ips: # TODO
+	global device_ips
+	if packet[IP].src in device_ips: # TODO
 		if TCP in packet or UDP in packet:
 			trans = 'TCP' if TCP in packet else 'UDP'
 			sport, dport = packet.sport, packet.dport
@@ -48,7 +48,7 @@ def rawbyte_callback(packet):
 		# if flow not in flows:
 		# 	if reverse_flow in flows:
 		# 		flow = reverse_flow
-		# 	elif packet[IP].src in malicious_ips:
+		# 	elif packet[IP].src in device_ips:
 		# 			print(f'create new flow: {flow}')
 		# 			flows[flow] = []
 		# 	else:
@@ -85,64 +85,12 @@ def feature_callback(packet):
 
 if __name__ == '__main__':
 	df = pd.read_csv('device_ips.csv')
-	malicious_ips = {row['IP']: row['type'] for idx, row in df.iterrows()}
-	if sys.argv[1] == 'one':
-		sniff(offline=sys.argv[2], prn=rawbyte_callback, store=0)
-		folder = sys.argv[3]
-
-		# for flow in flows:
-		# 	if not os.path.exists(f"{folder}/{flow[0]}"):
-		# 		os.mkdir(f"{folder}/{flow[0]}")
-		# 	with open(f"{folder}/{flow[0]}/{str(flow)}.csv", 'w') as fout:
-		# 		writer = csv.writer(fout)
-		# 		for packet in flows[flow]:
-		# 			writer.writerow(packet)
-		# 	print(f"finish writing flow: {flow}")
-		ip, _ = sys.argv[2].split('.pcap')
-		_, _, ip = ip.split('/')
-		if not os.path.exists('{folder}/{malicious_ips[ip]}'):
-			os.mkdir('{folder}/{malicious_ips[ip]}')
-		with open(f"{folder}/{malicious_ips[ip]}/{ip}.csv", 'w') as fout:
-			writer = csv.writer(fout)
-			for packet in packets_list:
-				writer.writerow(packet)
-
-	if sys.argv[1] == 'all':
-		folder = sys.argv[2]
-		dirs = os.listdir('ISCX_test')
-		try:
-			dirs.remove('.DS_Store')
-		except Exception as e:
-			pass
-		for d in dirs:
-			for _, _, files in os.walk(f"ISCX_{folder}/{d}"):
-				for filename in files:
-					sniff(offline=f"ISCX_{folder}/{d}/{filename}", prn=rawbyte_callback, store=0)
-					
-					ip, _ = filename.split('.pcap')
-					if not os.path.exists(f"{folder}/{d}"):
-						os.mkdir(f"{folder}/{d}")
-					with open(f"{folder}/{d}/{ip}.csv", 'w') as fout:
-						writer = csv.writer(fout)
-						for packet in packets_list:
-							writer.writerow(packet)
-					print(f"{folder}/{d}/{ip}.csv written")
-					packets_list = []
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	# device_ips = {row['IP']: row['type'] for idx, row in df.iterrows()}
+	device_ip = sys.argv[2]
+	device_ips[device_ip] = 1
+	sniff(offline=sys.argv[1], prn=rawbyte_callback, store=0)
+	with open(f"data/{device_ip}.csv", "w") as fout:
+		writer = csv.writer(fout)
+		for packet in packets_list:
+			writer.writerow(packet)
 
