@@ -12,6 +12,7 @@ import sys
 import os
 import csv
 import random
+from collections import deque
 from detector import Detector
 random.seed(7)
 
@@ -32,12 +33,12 @@ class FlowHandler(object):
 
 		self.dev2det = {}
 		self.detectors = {}
-		self.devce_list = {}
+		# self.devce_list = {}
 		if config != None:
 			with open(config, 'r') as f:
 				reader = csv.reader(f)
 				for row in reader:
-					self.devce_list[row[0]] = 1
+					self.dev2det[row[0]] = row[1]
 
 
 	def parse(self, packet):
@@ -46,7 +47,7 @@ class FlowHandler(object):
 		its mac address if a sequence is collected. Otherwise return None.
 
 		"""
-		if packet[Ether].src not in self.devce_list:
+		if packet[IP].src not in self.dev2det:
 			return
 		if IP not in packet:
 			return
@@ -74,16 +75,16 @@ class FlowHandler(object):
 		else:
 			byte_vector = self.padding(packet, packet_bytes, 'TCP')
 		
-		# add into flow_dict, and emit if fill up to seq_length
-		idx = (packet[Ether].src, flow)
-		if (packet[Ether].src, flow) not in self.flow_dict:
-			self.flow_dict[idx] = []
+		# add into flow_dict, and emit if filled up to seq_length
+		idx = (packet[IP].src, flow)
+		if (packet[IP].src, flow) not in self.flow_dict:
+			self.flow_dict[idx] = deque(maxlen=self.seq_length)
 		self.flow_dict[idx].append(byte_vector)
 
 		if len(self.flow_dict[idx]) == self.seq_length:
 			# print('Emit a sequence from flow: {}'.format(idx))
 			self.emit(idx[0], idx[1], self.flow_dict[idx])
-			self.flow_dict[idx].remove(self.flow_dict[idx][0])
+			self.flow_dict[idx].popleft()
 	
 
 	def padding(self, packet, packet_bytes, proto):
@@ -109,10 +110,16 @@ class FlowHandler(object):
 			self.dev2det[addr] = key
 			det = Detector(key, self.packet_length, self.seq_length)
 			self.detectors[key] = det
+		elif self.dev2det[addr] not in self.detectors:
+			key = self.dev2det[addr]
+			print('Create a new detector {}'.format(key))
+			self.dev2det[addr] = key
+			det = Detector(key, self.packet_length, self.seq_length)
+			self.detectors[key] = det			
 		else:
 			det = self.detectors[self.dev2det[addr]]
 
-		det.update_buffer(seq)
+		det.update_buffer(list(seq))
 
 		
 
