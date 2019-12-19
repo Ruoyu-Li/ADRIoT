@@ -47,12 +47,12 @@ class FlowHandler(object):
 		its mac address if a sequence is collected. Otherwise return None.
 
 		"""
-		if packet[IP].src not in self.dev2det:
-			return
-		if IP not in packet:
-			return
-		if TCP not in packet and UDP not in packet and ICMP not in packet:
-			return
+                if IP not in packet:
+                    return
+                if packet[IP].src not in self.dev2det:
+		    return
+    		if TCP not in packet and UDP not in packet and ICMP not in packet:
+		    return
 
 		# Flow is seperated by 5-tuple (source, destination, sport, dport, proto)
 		try:
