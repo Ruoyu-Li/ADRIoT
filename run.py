@@ -16,7 +16,7 @@ source = sys.argv[2]
 mode = sys.argv[3]
 
 cap = PacketCapturer(stream_type)
-flow_handler = FlowHandler(config='config.csv', mode=mode)
+flow_handler = FlowHandler(config='config/config.csv', mode=mode)
 if stream_type == 'pcap':
     for device in os.listdir(source):
         if device == '.DS_Store':

@@ -34,7 +34,7 @@ for b in batch_size:
                     for t in thres_list:
                         os.remove(os.path.join('threshold', t))
                 cap = PacketCapturer(stream_type)
-                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config.csv', mode='T')
+                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config/config.csv', mode='T')
                 for device in os.listdir(source_train):
                     if device == '.DS_Store':
                         continue
@@ -49,7 +49,7 @@ for b in batch_size:
                                 cap.capture(os.path.join(
                                     source_train, device, action, f), flow_handler.parse)
                 cap = PacketCapturer(stream_type)
-                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config.csv', mode='S')
+                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config/config.csv', mode='S')
                 for device in os.listdir(source_eval):
                     if device == '.DS_Store':
                         continue
@@ -64,7 +64,7 @@ for b in batch_size:
                                 cap.capture(os.path.join(
                                     source_eval, device, action, f), flow_handler.parse)
                 cap = PacketCapturer(stream_type)
-                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config.csv', mode='E')
+                flow_handler = FlowHandler(packet_length=p, seq_length=s, batch_size=b, epoches=e, config='config/config.csv', mode='E')
                 for device in os.listdir(source_test):
                     if device == '.DS_Store':
                         continue

@@ -12,7 +12,7 @@ import random
 random.seed(7)
 from model import Autoencoder
 from sklearn.metrics import mean_squared_error
-from math import inf
+from math import inf, sqrt
 import os
 import csv
 
@@ -22,21 +22,24 @@ class Detector(object):
         super(Detector, self).__init__()
         self.key = str(key)
         self.mini_batch = batch_size
-        self.threshold = -1
+        self.threshold = [0, 0, 0, 0, 1]
         self.buffer = []
         self.max_round = inf
         self.train_round = 0
         self.model = Autoencoder(packet_length, seq_length, epoches)
         self.path = os.path.join('model', self.key)
         if os.path.exists(self.path + '.json'):
+            print('Using existing model & threshold: {}'.format(self.key))
             self.model.load(self.path)
-        if os.path.exists(os.path.join('threshold', self.key)):
-            f = open(os.path.join('threshold', self.key), 'r')
-            self.threshold = float(f.readline())
-            f.close()
+        if os.path.exists(os.path.join('threshold', self.key+'.csv')):
+            with open(os.path.join('threshold', self.key+'.csv'), 'r') as f:
+                reader = csv.reader(f)
+                thres_string = next(reader)
+                for i in range(len(thres_string)):
+                    self.threshold[i] = float(thres_string[i])
         if not os.path.exists(os.path.join('evaluation', self.key)):
             os.mkdir(os.path.join('evaluation', self.key))
-        self.log_path = os.path.join('evaluation', self.key, str(packet_length)+'_'+str(seq_length)+'_'+str(batch_size)+'_'+str(epoches)+'.csv')
+        self.log_path = os.path.join('evaluation', self.key, self.key+'_test.csv')
 
     def update_buffer(self, seq, mode):
         seq = deepcopy(seq)
@@ -76,18 +79,28 @@ class Detector(object):
     def set_thres(self, X):
         Y = self.model.predict(X)
         mse = mean_squared_error(X[0], Y[0])
-        print('Calculating threshold of {}'.format(self.key))
-        if mse > self.threshold:
-            self.threshold = mse
-            print('Threshold updated {}'.format(self.threshold))
-            with open(os.path.join('threshold', self.key), 'w') as f:
-                f.write(str(self.threshold))
+        print('Calculating threshold of {}: {}'.format(self.key, mse))
+        self.threshold[0] += 1
+        self.threshold[1] += mse
+        self.threshold[2] += mse * mse
+        self.threshold[3] = mse if mse > self.threshold[3] else self.threshold[3]
+        self.threshold[4] = mse if mse < self.threshold[4] else self.threshold[4]
+        # print('Threshold updated {}'.format(self.threshold))
+        with open(os.path.join('threshold', self.key+'.csv'), 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(self.threshold)
 
     def execute(self, X):
         Y = self.model.predict(X)
         mse = mean_squared_error(X[0], Y[0])
-        print('Execute on {}'.format(self.key))
+        print('Execute on {}: {}'.format(self.key, mse))
+        min_max = 'Normal' if mse <= self.threshold[3] and mse >= self.threshold[4] else 'Malicious'
+        avg = self.threshold[1] / self.threshold[0]
+        sigma = sqrt(self.threshold[2] / self.threshold[0] - avg * avg)
+        one_sigma = 'Normal' if mse <= avg + sigma and mse >= avg - sigma else 'Malicious'
+        two_sigma = 'Normal' if mse <= avg + sigma * 2 and mse >= avg - sigma * 2 else 'Malicious'
+        three_sigma = 'Normal' if mse <= avg + sigma * 3 and mse >= avg - sigma * 3 else 'Malicious'
         with open(self.log_path, 'a') as f:
             writer = csv.writer(f)
-            writer.writerow([str(mse), str(self.threshold), 'Normal' if mse <= self.threshold else 'Malicious'])
+            writer.writerow([str(mse), min_max, one_sigma, two_sigma, three_sigma])
 

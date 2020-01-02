@@ -43,7 +43,7 @@ class FlowHandler(object):
                 reader = csv.reader(f)
                 for row in reader:
                     self.dev2det[row[0]] = row[1]
-            print(self.dev2det)
+        print(self.dev2det)
 
     def parse(self, packet):
         """ 
@@ -84,8 +84,8 @@ class FlowHandler(object):
             byte_vector = self.padding(packet, packet_bytes, 'TCP')
 
         # add into flow_dict, and emit if filled up to seq_length
-        idx = (src_ip, flow)
-        # flow = 1
+        # idx = (src_ip, flow)
+        flow = src_ip
         if flow not in self.flow_dict:
             self.flow_dict[flow] = deque(maxlen=self.seq_length)
         self.flow_dict[flow].append(byte_vector)
@@ -93,7 +93,11 @@ class FlowHandler(object):
         if len(self.flow_dict[flow]) == self.seq_length:
             # print('Emit a sequence from flow: {}'.format(idx))
             self.emit(src_ip, flow, self.flow_dict[flow])
-            self.flow_dict[flow].popleft()
+            # TODO
+            if self.mode == 'T' or self.mode == 'S':
+                self.flow_dict[flow].popleft()
+            else:
+                self.flow_dict[flow] = deque(maxlen=self.seq_length)
 
     def padding(self, packet, packet_bytes, proto):
         # UDP/ICMP header padding
