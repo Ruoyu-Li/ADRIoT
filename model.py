@@ -15,7 +15,7 @@ from keras.layers import TimeDistributed
 from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D
 from keras.layers import UpSampling1D
-from keras.models import Model
+from keras.layers import Dropout
 from keras.utils import plot_model
 from keras.models import model_from_json
 np.random.seed(7)
@@ -28,14 +28,16 @@ class Autoencoder(object):
         self.epochs = epochs
 
         self.model = Sequential()
-        self.model.add(Conv1D(filters=128, kernel_size=3, activation='relu',
+        self.model.add(Conv1D(filters=32, kernel_size=3, activation='relu',
                               padding='same', input_shape=(seq_length, packet_length)))
+        self.model.add(Conv1D(filters=64, kernel_size=3, activation='relu'))
         self.model.add(MaxPooling1D(pool_size=2, padding='same'))
-        self.model.add(LSTM(64, activation='relu', return_sequences=True))
+        self.model.add(Dropout(0.2))
+        self.model.add(LSTM(128, activation='relu', return_sequences=True))
         # self.model.add(RepeatVector(seq_length / 2))
-        self.model.add(LSTM(64, activation='relu', return_sequences=True))
+        self.model.add(LSTM(128, activation='relu', return_sequences=True))
         # self.model.add(Conv1D(filters=128, kernel_size=3, activation='relu', padding='same'))
-        self.model.add(UpSampling1D(2))
+        self.model.add(UpSampling1D(3))
         self.model.add(TimeDistributed(Dense(packet_length)))
         self.model.compile(optimizer='adam', loss='mse')
         self.model.summary()
@@ -58,3 +60,4 @@ class Autoencoder(object):
             loaded_model_json = f.read()
         self.model = model_from_json(loaded_model_json)
         self.model.load_weights(name + '.h5')
+        self.model.compile(optimizer='adam', loss='mse')

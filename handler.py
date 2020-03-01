@@ -18,12 +18,12 @@ random.seed(7)
 
 
 class FlowHandler(object):
-    def __init__(self, packet_length=1500, seq_length=6, batch_size=128, epoches=10, config=None, mode='T'):
+    def __init__(self, packet_length=1500, seq_length=6, batch_size=128, epochs=10, config=None, mode='T'):
         super(FlowHandler, self).__init__()
         self.packet_length = packet_length
         self.seq_length = seq_length
         self.batch_size = batch_size
-        self.epoches = epoches
+        self.epochs = epochs
         self.flow_dict = {}
         # maximum cached flows use more than 50% of memory size
         self.max_flows = int((os.sysconf('SC_PAGE_SIZE') * os.sysconf(
@@ -37,13 +37,12 @@ class FlowHandler(object):
 
         self.dev2det = {}
         self.detectors = {}
-        # self.devce_list = {}
-        if config != None:
+        # self.device_list = {}
+        if config:
             with open(config, 'r') as f:
                 reader = csv.reader(f)
                 for row in reader:
                     self.dev2det[row[0]] = row[1]
-        print(self.dev2det)
 
     def parse(self, packet):
         """ 
@@ -60,7 +59,7 @@ class FlowHandler(object):
         if DNS in packet or Raw not in packet:
             return
 
-        # Flow is seperated by 5-tuple (source, destination, sport, dport, proto)
+        # Flow is separated by 5-tuple (source, destination, sport, dport, proto)
         try:
             flow = (packet[IP].src, packet[IP].dst,
                     packet.sport, packet.dport, packet.proto)
@@ -84,7 +83,6 @@ class FlowHandler(object):
             byte_vector = self.padding(packet, packet_bytes, 'TCP')
 
         # add into flow_dict, and emit if filled up to seq_length
-        # idx = (src_ip, flow)
         flow = src_ip
         if flow not in self.flow_dict:
             self.flow_dict[flow] = deque(maxlen=self.seq_length)
@@ -92,8 +90,7 @@ class FlowHandler(object):
 
         if len(self.flow_dict[flow]) == self.seq_length:
             # print('Emit a sequence from flow: {}'.format(idx))
-            self.emit(src_ip, flow, self.flow_dict[flow])
-            # TODO
+            self.emit(src_ip, self.flow_dict[flow])
             if self.mode == 'T' or self.mode == 'S':
                 self.flow_dict[flow].popleft()
             else:
@@ -109,25 +106,26 @@ class FlowHandler(object):
                 idx2 = len(packet[proto])
             packet_bytes = packet_bytes[:idx1 + idx2] + \
                 b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
-
-        # Padding or truncating to pakcet_length bytes, and normalize
+        # TODO
+        packet_bytes = packet[Raw].build()
+        # Padding or truncating to packet_length bytes, and normalize
         packet_bytes = packet_bytes + b'\x00' * (self.packet_length - len(packet_bytes)) if len(
             packet_bytes) < self.packet_length else packet_bytes[:self.packet_length]
         byte_vector = [x / 255.0 for x in list(packet_bytes)]
         return byte_vector
 
-    def emit(self, addr, flow, seq):
+    def emit(self, addr, seq):
         if addr not in self.dev2det:
             key = hash(random.random())
             print('Create a new detector {}'.format(key))
             self.dev2det[addr] = key
-            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epoches)
+            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
             self.detectors[key] = det
         elif self.dev2det[addr] not in self.detectors:
             key = self.dev2det[addr]
             print('Create a new detector {}'.format(key))
             self.dev2det[addr] = key
-            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epoches)
+            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
             self.detectors[key] = det
         else:
             det = self.detectors[self.dev2det[addr]]
