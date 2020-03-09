@@ -32,7 +32,7 @@ class Detector(object):
         self.model_path = os.path.join('model', self.key)
         # self.stats_path = os.path.join('stats', self.key + '.csv')
         self.stats_path = os.path.join('stats', self.key + '.pkl')
-        self.eval_path = os.path.join('evaluation', self.key + '_norm_test.csv')
+        self.eval_path = os.path.join('evaluation', self.key + '_balance.csv')
         if os.path.exists(self.model_path + '.json'):
             print('Using existing model: {}'.format(self.key))
             self.model.load(self.model_path)
@@ -47,7 +47,7 @@ class Detector(object):
             self.scaler = pickle.load(open(self.stats_path, 'rb'))
         self.save_flag = False
 
-    def update_buffer(self, seq, mode):
+    def update_buffer(self, seq, mode, flow):
         seq = deepcopy(seq)
         if mode == 'T' and self.train_round <= self.max_round:
             self.buffer.append(seq)
@@ -63,7 +63,7 @@ class Detector(object):
             if mode == 'S':
                 self.set_stats(X)
             elif mode == 'E':
-                self.execute(X)
+                self.execute(X, flow)
 
     def train(self, X):
         self.model.fit(X)
@@ -88,7 +88,7 @@ class Detector(object):
         self.scaler.partial_fit(np.array([[mse]]))
         pickle.dump(self.scaler, open(self.stats_path, 'wb'))
 
-    def execute(self, X):
+    def execute(self, X, flow):
         Y = self.model.predict(X)
         mse = mean_squared_error(X[0], Y[0])
         print('Execute on {}: {}'.format(self.key, mse))
@@ -105,5 +105,5 @@ class Detector(object):
         with open(self.eval_path, 'a') as f:
             writer = csv.writer(f)
             # writer.writerow([str(mse), min_max, one_sigma, two_sigma, three_sigma])
-            writer.writerow([str(mse), one_sigma, two_sigma, three_sigma])
+            writer.writerow([str(mse), one_sigma, two_sigma, three_sigma, str(flow)])
 
