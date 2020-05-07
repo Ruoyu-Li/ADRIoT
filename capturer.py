@@ -15,8 +15,8 @@ class PacketCapturer(object):
 		super(PacketCapturer, self).__init__()
 		self.stream_type = stream_type
 
-	def capture(self, source, callback):
+	def capture(self, source, handler):
 		if self.stream_type == 'pcap':
-			sniff(offline=source, prn=callback, store=0)
+			sniff(offline=source, prn=handler.parse, store=0)
 		if self.stream_type == 'network':
-			sniff(iface=source, prn=callback, store=0)
+			sniff(iface=source, prn=handler.parse, store=0)

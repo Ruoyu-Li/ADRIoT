@@ -5,7 +5,6 @@ returns a sequence for detection when a flow fills up the length.
 """
 __author__ = 'Ruoyu Li'
 
-
 from scapy.all import *
 import numpy as np
 import sys
@@ -14,6 +13,7 @@ import csv
 import random
 from collections import deque
 from detector import Detector
+
 random.seed(7)
 
 
@@ -26,6 +26,7 @@ class FlowHandler(object):
         self.epochs = epochs
         self.flow_dict = {}
         self.ip_to_domain = {}
+        self.dev_to_domain = {}
         # maximum cached flows use more than 50% of memory size
         self.max_flows = int((os.sysconf('SC_PAGE_SIZE') * os.sysconf(
             'SC_PHYS_PAGES')) * 0.5 / (self.packet_length * self.seq_length))
@@ -36,61 +37,77 @@ class FlowHandler(object):
         }
         self.mode = mode
 
-        self.dev2det = {}
+        self.dev_to_det = {}
         self.detectors = {}
         # self.device_list = {}
         if config:
             with open(config, 'r') as f:
                 reader = csv.reader(f)
+                # next(reader)
                 for row in reader:
-                    self.dev2det[row[0]] = row[1]
+                    self.dev_to_det[row[0]] = row[1]
 
     def parse(self, packet):
-        """ 
-        Parse a packet and add it into its flow list. Return a sequence and 
+        """
+        Parse a packet and add it into its flow list. Return a sequence and
         its mac address if a sequence is collected. Otherwise return None.
 
         """
-        if IP not in packet:
+        if Ether not in packet:
             return
+        if packet[Ether].src in self.dev_to_det:
+            addr = packet[Ether].src
+            direction = 0
+            if DNS in packet:
+                return
+        elif packet[Ether].dst in self.dev_to_det:
+            addr = packet[Ether].dst
+            direction = 1
+            if DNSRR in packet:
+                self.dnsrr_process(addr, packet)
+                return
+        else:
+            return
+        if TCP not in packet and UDP not in packet:
+            return
+        if (direction == 0 and packet[IP].dst.startswith('192.168.')) or (
+                direction == 1 and packet[IP].src.startswith('192.168.')) or (
+                direction == 0 and packet[IP].dst == '255.255.255.255') or (
+                direction == 0 and packet[IP].dst == '239.255.255.250'):
+            if packet[Ether].src != '3c:33:00:98:ee:fd' and packet[Ether].dst != '3c:33:00:98:ee:fd' and \
+                    packet[Ether].src != '00:50:56:be:02:54' and packet[Ether].dst != '00:50:56:be:02:54':
+                return
+        if DHCP in packet or BOOTP in packet:
+            return
+        if Raw not in packet and TCP in packet:
+            # ACK, FIN, PSH, SYN
+            if packet[TCP].flags & 0x10 or \
+                    packet[TCP].flags & 0x01 or \
+                    packet[TCP].flags & 0x04 or \
+                    packet[TCP].flags & 0x02:
+                return
+        # Flow is separated by 4-tuple (dev_mac, domain, sport, dport)
+        # if domain not cached, use ip
+        # if one port is in system port range, ignore the other one
+        if direction == 0:
+            ip = packet[IP].dst
+            sport, dport = packet.sport, packet.dport
+        else:
+            ip = packet[IP].src
+            dport, sport = packet.sport, packet.dport
+        if sport < 1024 <= dport:
+            dport = None
+        elif dport < 1024 <= sport:
+            sport = None
+        elif packet.proto == self.proto_lookup['UDP']:
+            sport, dport = None, None
 
-        if packet[IP].src not in self.dev2det:
-            if packet[IP].dst in self.dev2det:
-                if BOOTP in packet or DHCP in packet:
-                    if packet[IP].dst not in self.flow_dict:
-                        print('found new device {}'.format(packet[IP].dst))
-                        self.flow_dict[packet[IP].dst] = {}
-                if DNSRR in packet:
-                    if packet.qd.qname in self.flow_dict[packet[IP].dst]:
-                        ans_ip = None
-                        for i in range(packet.ancount):
-                            if packet.an[i].type != 1:
-                                continue
-                            ans_ip = packet.an[i].rdata
-                        if ans_ip and ans_ip not in self.ip_to_domain:
-                            self.ip_to_domain[ans_ip] = packet.qd.qname
-            return
+        if ip in self.ip_to_domain:
+            flow = (addr, self.ip_to_domain[ip], sport, dport)
+        else:
+            flow = (addr, ip, sport, dport)
 
-        if TCP not in packet and UDP not in packet and ICMP not in packet:
-            return
-        # if Raw not in packet:
-        #     return
-        if BOOTP in packet or DHCP in packet:
-            return
-        if DNSQR in packet:
-            if packet.qd.qname not in self.flow_dict[packet[IP].src]:
-                self.flow_dict[packet[IP].src][packet.qd.qname] = deque(maxlen=self.seq_length)
-            return
-
-        # Flow is separated by 5-tuple (source, destination, sport, dport, proto)
-        # try:
-        #     flow = (packet[IP].src, packet[IP].dst, packet.dport, packet.proto)
-        # except AttributeError as e:
-        #     flow = (packet[IP].src, packet[IP].dst, 0, packet.proto)
-
-        # IP address masking
-        src_ip = packet[IP].src
-        dst_ip = packet[IP].dst
+        # IP address mask
         packet[IP].src = '0.0.0.0'
         packet[IP].dst = '0.0.0.0'
 
@@ -100,47 +117,24 @@ class FlowHandler(object):
         # padding
         if packet.proto == self.proto_lookup['UDP']:
             byte_vector = self.padding(packet, packet_bytes, 'UDP')
-        elif packet.proto == self.proto_lookup['ICMP']:
+        if packet.proto == self.proto_lookup['ICMP']:
             byte_vector = self.padding(packet, packet_bytes, 'ICMP')
         else:
             byte_vector = self.padding(packet, packet_bytes, 'TCP')
 
         # add into flow_dict, and emit if filled up to seq_length
-        # flow = src_ip
-        """ New attempt to balance data of different flows for a device """
-        # if src_ip not in self.flow_dict:
-        #     self.flow_dict[src_ip] = {}
-        # if flow not in self.flow_dict[src_ip]:
-        #     self.flow_dict[src_ip][flow] = deque(maxlen=self.seq_length)
+        if flow not in self.flow_dict:
+            self.flow_dict[flow] = deque(maxlen=self.seq_length)
+        self.flow_dict[flow].append(byte_vector)
 
-        if dst_ip in self.ip_to_domain:
-            flow = self.ip_to_domain[dst_ip]
-            # print(flow)
-        else:
-            print(dst_ip)
-            return
-            # flow = 'unknown'
-            # if flow not in self.flow_dict:
-            #     self.flow_dict[src_ip][flow] = deque(maxlen=self.seq_length)
-        self.flow_dict[src_ip][flow].append(byte_vector)
-
-        if len(self.flow_dict[src_ip][flow]) == self.seq_length:
-            self.emit(src_ip, self.flow_dict[src_ip][flow], flow)
+        if len(self.flow_dict[flow]) == self.seq_length:
+            # print('Emit a sequence from flow: {}'.format(idx))
+            print(flow)
+            self.emit(addr, self.flow_dict[flow])
             if self.mode == 'T':
-                for other in self.flow_dict[src_ip]:
-                    if other == flow:
-                        for k in range(int(self.seq_length / 2)):
-                            self.flow_dict[src_ip][other].popleft()
-                        continue
-                    if len(self.flow_dict[src_ip][other]) == 0:
-                        continue
-                    for i in range(self.seq_length - len(self.flow_dict[src_ip][other])):
-                        self.flow_dict[src_ip][other].append(self.flow_dict[src_ip][other][i])
-                    self.emit(src_ip, self.flow_dict[src_ip][other], other)
-                    for k in range(int(self.seq_length / 2)):
-                        self.flow_dict[src_ip][other].popleft()
+                self.flow_dict[flow].popleft()
             else:
-                self.flow_dict[src_ip][flow] = deque(maxlen=self.seq_length)
+                self.flow_dict[flow] = deque(maxlen=self.seq_length)
 
     def padding(self, packet, packet_bytes, proto):
         # UDP/ICMP header padding
@@ -151,8 +145,8 @@ class FlowHandler(object):
             else:
                 idx2 = len(packet[proto])
             packet_bytes = packet_bytes[:idx1 + idx2] + \
-                b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
-        # TODO: only use payload now
+                           b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
+        # TODO
         # packet_bytes = packet[Raw].build()
         # Padding or truncating to packet_length bytes, and normalize
         packet_bytes = packet_bytes + b'\x00' * (self.packet_length - len(packet_bytes)) if len(
@@ -160,20 +154,50 @@ class FlowHandler(object):
         byte_vector = [x / 255.0 for x in list(packet_bytes)]
         return byte_vector
 
-    def emit(self, addr, seq, flow):
-        if addr not in self.dev2det:
+    def emit(self, addr, seq):
+        if addr not in self.dev_to_det:
             key = hash(random.random())
             print('Create a new detector {}'.format(key))
-            self.dev2det[addr] = key
+            self.dev_to_det[addr] = key
             det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
             self.detectors[key] = det
-        elif self.dev2det[addr] not in self.detectors:
-            key = self.dev2det[addr]
+        elif self.dev_to_det[addr] not in self.detectors:
+            key = self.dev_to_det[addr]
             print('Create a new detector {}'.format(key))
-            self.dev2det[addr] = key
+            self.dev_to_det[addr] = key
             det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
             self.detectors[key] = det
         else:
-            det = self.detectors[self.dev2det[addr]]
+            det = self.detectors[self.dev_to_det[addr]]
 
-        det.update_buffer(list(seq), self.mode, flow)
+        det.update_buffer(list(seq), self.mode)
+
+    def dnsrr_process(self, addr, packet):
+        if not packet.qd:
+            return
+        domain = packet.qd.qname
+        if addr not in self.dev_to_domain:
+            self.dev_to_domain[addr] = []
+        if domain not in self.dev_to_domain[addr]:
+            self.dev_to_domain[addr].append(domain)
+        if domain.endswith(b'.local.'):
+            return
+        ans_ip = []
+        for i in range(packet.ancount):
+            if packet.an[i].type != 1:
+                continue
+            ans_ip.append(packet.an[i].rdata)
+        if ans_ip:
+            for ip in ans_ip:
+                self.ip_to_domain[ip] = domain
+
+    def wrap_up(self):
+        if self.mode == 'T':
+            for key in self.detectors:
+                det = self.detectors[key]
+                det.save()
+        elif self.mode == 'S':
+            for addr in self.dev_to_domain:
+                key = self.dev_to_det[addr]
+                det = self.detectors[key]
+                det.set_threshold(len(self.dev_to_domain[addr]))
