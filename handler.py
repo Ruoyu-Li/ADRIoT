@@ -13,7 +13,6 @@ import csv
 import random
 from collections import deque
 from detector import Detector
-from decimal import Decimal
 
 random.seed(7)
 
@@ -23,12 +22,9 @@ class FlowHandler(object):
         super(FlowHandler, self).__init__()
         self.packet_length = packet_length
         self.seq_length = seq_length
-        self.time_window = 0.1
         self.batch_size = batch_size
         self.epochs = epochs
         self.flow_dict = {}
-        self.timer = {}
-        self.last_time = {}
         self.ip_to_domain = {}
         self.dev_to_domain = {}
         # maximum cached flows use more than 50% of memory size
@@ -50,6 +46,9 @@ class FlowHandler(object):
                 # next(reader)
                 for row in reader:
                     self.dev_to_det[row[0]] = row[1]
+        # with open('evaluation_10/appletv_stats.csv', 'w') as f:
+        #     writer = csv.writer(f)
+        #     writer.writerow(['size', 'protocol', 'sport', 'dport', 'entropy', 'remote'])
 
     def parse(self, packet):
         """
@@ -57,11 +56,12 @@ class FlowHandler(object):
         its mac address if a sequence is collected. Otherwise return None.
 
         """
-        if Ether not in packet:
+        if Ether not in packet or IP not in packet:
             return
         if packet[Ether].src in self.dev_to_det:
             addr = packet[Ether].src
             direction = 0
+            # TODO：DNS for statistics, but not for training
             if DNS in packet:
                 return
         elif packet[Ether].dst in self.dev_to_det:
@@ -72,9 +72,9 @@ class FlowHandler(object):
                 return
         else:
             return
-        if TCP not in packet and UDP not in packet:
-            return
         if direction == 1:
+            return
+        if TCP not in packet and UDP not in packet:
             return
         if (direction == 0 and packet[IP].dst.startswith('192.168.')) or (
                 direction == 1 and packet[IP].src.startswith('192.168.')) or (
@@ -105,13 +105,27 @@ class FlowHandler(object):
             dport = None
         elif dport < 1024 <= sport:
             sport = None
-        elif packet.proto == self.proto_lookup['UDP']:
+        elif 1024 <= sport <= dport:
             sport, dport = None, None
 
         if ip in self.ip_to_domain:
             flow = (addr, self.ip_to_domain[ip], sport, dport)
         else:
             flow = (addr, ip, sport, dport)
+
+        # raw = packet[IP].build()
+        # raw_value = set(x for x in raw)
+        # ent = 0
+        # for value in raw_value:
+        #     i = 0
+        #     for x in raw:
+        #         i += 1 if x == value else 0
+        #     p = i / len(raw)
+        #     logp = np.log2(p)
+        #     ent -= p * logp
+        # with open('evaluation_10/appletv_stats.csv', 'a') as f:
+        #     writer = csv.writer(f)
+        #     writer.writerow([str(len(packet[IP])), packet.proto, sport, dport, str(ent), flow[1]])
 
         # IP address mask
         packet[IP].src = '0.0.0.0'
@@ -131,30 +145,16 @@ class FlowHandler(object):
         # add into flow_dict, and emit if filled up to seq_length
         if flow not in self.flow_dict:
             self.flow_dict[flow] = deque(maxlen=self.seq_length)
-            self.timer[flow] = deque(maxlen=self.seq_length)
-            self.last_time[flow] = 0
         self.flow_dict[flow].append(byte_vector)
-        if self.last_time[flow] == 0:
-            self.timer[flow].append(Decimal(0))
-        elif self.last_time[flow] > packet.time or packet.time - self.last_time[flow] > 30:
-            self.timer[flow].append(Decimal(0.05))
-        else:
-            self.timer[flow].append(packet.time - self.last_time[flow])
-        self.last_time[flow] = packet.time
 
-        if (sum(self.timer[flow]) > self.time_window and
-            len(self.flow_dict[flow]) >= self.seq_length * 1 / 2) or \
-                len(self.flow_dict[flow]) == self.seq_length:
-            # print(flow)
-            print(len(self.flow_dict[flow]), sum(self.timer[flow]))
+        if len(self.flow_dict[flow]) == self.seq_length:
+            # print('Emit a sequence from flow: {}'.format(idx))
+            print(flow)
             self.emit(addr, self.flow_dict[flow])
             if self.mode == 'T':
-                for i in range(int(self.seq_length * 1 / 3)):
-                    self.flow_dict[flow].popleft()
-                    self.timer[flow].popleft()
+                self.flow_dict[flow].popleft()
             else:
                 self.flow_dict[flow] = deque(maxlen=self.seq_length)
-                self.timer[flow] = deque(maxlen=self.seq_length)
 
     def padding(self, packet, packet_bytes, proto):
         # UDP/ICMP header padding
@@ -164,7 +164,8 @@ class FlowHandler(object):
                 idx2 = len(packet[proto]) - len(packet.load)
             else:
                 idx2 = len(packet[proto])
-            packet_bytes = packet_bytes[:idx1 + idx2] + b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
+            packet_bytes = packet_bytes[:idx1 + idx2] + \
+                           b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
         # TODO
         # packet_bytes = packet[Raw].build()
         # Padding or truncating to packet_length bytes, and normalize
@@ -188,11 +189,8 @@ class FlowHandler(object):
             self.detectors[key] = det
         else:
             det = self.detectors[self.dev_to_det[addr]]
-        seq_list = list(seq)
-        if len(seq_list) < self.seq_length:
-            for i in range(self.seq_length - len(seq_list)):
-                seq_list.append([0] * self.packet_length)
-        det.update_buffer(seq_list, self.mode)
+
+        det.update_buffer(list(seq), self.mode)
 
     def dnsrr_process(self, addr, packet):
         if not packet.qd:

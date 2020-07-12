@@ -6,21 +6,19 @@ __author__ = 'Ruoyu Li'
 import numpy as np
 import pandas as pd
 import os
-from keras.models import Sequential
-from keras.models import Model
-from keras.layers import LSTM
-from keras.layers import Dense
-from keras.layers import RepeatVector
-from keras.layers import TimeDistributed
+from tensorflow.keras.models import Sequential, Model, model_from_json
+from tensorflow.keras.layers import LSTM, Dense, RepeatVector, TimeDistributed
 from keras.layers.convolutional import Conv1D
 from keras.layers.convolutional import MaxPooling1D
 from keras.layers import UpSampling1D
 from keras.layers import Dropout
 from keras.utils import plot_model
-from keras.models import model_from_json
+from tensorflow.keras import optimizers
 
 np.random.seed(7)
-CUDA_VISIBLE_DEVICES = 0
+# os.environ['CUDA_VISIBLE_DEVICES'] = ''
+CUDA_VISIBLE_DEVICES = 1
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
 class Autoencoder(object):
@@ -47,7 +45,8 @@ class Autoencoder(object):
         self.model.summary()
 
     def fit(self, X):
-        self.model.fit(X, X, epochs=self.epochs, verbose=True)
+        history = self.model.fit(X, X, epochs=self.epochs, verbose=True)
+        return history
 
     def predict(self, X):
         Y = self.model.predict(X)
@@ -64,7 +63,10 @@ class Autoencoder(object):
             loaded_model_json = f.read()
         self.model = model_from_json(loaded_model_json)
         self.model.load_weights(name + '.h5')
-        self.model.compile(optimizer='adam', loss='mse')
+        for layer in self.model.layers[:3]:
+            layer.trainable = False
+        self.model.compile(optimizer=optimizers.SGD(), loss='mse')
+        # self.model.compile(optimizer='adam', loss='mse')
 
     def output_feature(self, X):
         lstm1_layer_model = Model(inputs=self.model.input, outputs=self.model.get_layer('LSTM_1').output)

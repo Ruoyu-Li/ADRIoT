@@ -10,10 +10,11 @@ import random
 from model import Autoencoder
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
-from sklearn.cluster import KMeans
+from sklearn.neighbors import LocalOutlierFactor
 import pickle
 from math import inf, sqrt
 import csv
+import time
 random.seed(7)
 
 
@@ -23,20 +24,23 @@ class Detector(object):
         self.key = str(key)
         self.mini_batch = batch_size
         # 5 tuple stats - count, linear sum, squared sum, max, min
-        # self.stats = [0, 0, 0, 0, 1]
         self.stats = [1, 0]
         self.count = 0
         self.buffer = []
+        self.fit_buffer = []
         self.mse_buffer = []
         self.max_round = inf
         self.train_round = 0
         self.model = Autoencoder(packet_length, seq_length, epochs)
         self.scaler = StandardScaler()
 
-        self.model_path = os.path.join('model2', self.key)
-        self.stats_path = os.path.join('stats2', self.key + '.csv')
-        # self.stats_path = os.path.join('stats', self.key + '.pkl')
-        self.eval_path = os.path.join('evaluation2', self.key + '_udp_ddos.csv')
+        self.model_path = os.path.join('model_{}'.format(seq_length), self.key)
+        # self.model_path = os.path.join('model')
+        self.stats_path = os.path.join('stats_{}'.format(seq_length), self.key + '.csv')
+        # self.stats_path = os.path.join('stats', self.key + '.csv')
+        self.eval_path = os.path.join('evaluation_{}'.format(seq_length), self.key + '_test.csv')
+        # self.eval_path = os.path.join('evaluation', self.key + '.csv')
+        # self.loss_path = os.path.join('evaluation_{}'.format(seq_length), self.key + '_loss.csv')
         if os.path.exists(self.model_path + '.json'):
             print('Using existing model: {}'.format(self.key))
             self.model.load(self.model_path)
@@ -46,10 +50,6 @@ class Detector(object):
                 stats_string = next(reader)
                 for i in range(len(stats_string)):
                     self.stats[i] = float(stats_string[i])
-        # if os.path.exists(self.stats_path):
-        #     print('Using existing stats')
-        #     self.scaler = pickle.load(open(self.stats_path, 'rb'))
-        # self.save_flag = False
 
     def update_buffer(self, seq, mode):
         seq = deepcopy(seq)
@@ -61,18 +61,25 @@ class Detector(object):
                 self.train(X)
                 self.buffer = []
                 self.train_round += 1
+        elif mode == 'E':
+            self.fit_buffer.append(seq)
+            if len(self.fit_buffer) == 1:
+                X = np.array(self.fit_buffer)
+                self.execute(X)
+                self.fit_buffer = []
         else:
             X = np.array(seq)
             X = X.reshape((1, X.shape[0], X.shape[1]))
-            if mode == 'S':
-                self.eval(X)
-            elif mode == 'E':
-                self.execute(X)
-            elif mode == 'F':
-                self.feature(X)
+            self.eval(X)
 
     def train(self, X):
-        self.model.fit(X)
+        history = self.model.fit(X)
+        # self.count += 1
+        # with open(self.loss_path, 'a') as f:
+        #     writer = csv.writer(f)
+        #     if self.count == 1:
+        #         writer.writerow([history.history['loss'][0]])
+        #     writer.writerow([history.history['loss'][-1]])
         # print('Detector {} saved'.format(self.key))
         # self.model.save(self.model_path)
 
@@ -86,66 +93,33 @@ class Detector(object):
         mse = mean_squared_error(X[0], Y[0])
         print('Calculating mse of {}: {}'.format(self.key, mse))
         self.mse_buffer.append(mse)
-        # self.stats[0] += 1
-        # self.stats[1] += mse
-        # self.stats[2] += mse * mse
-        # self.stats[1] = self.stats[1] + 0.002 if mse > self.stats[1] else self.stats[1]
-        # self.stats[0] = self.stats[0] - 0.002 if mse < self.stats[0] else self.stats[0]
-        # with open(self.stats_path, 'w') as f:
-        #     writer = csv.writer(f)
-        #     writer.writerow(self.stats)
-        # self.count += 1
-        # self.scaler.partial_fit(np.array([[mse]]))
-        # pickle.dump(self.scaler, open(self.stats_path, 'wb'))
 
     def set_threshold(self, n):
-        n = 20 if n > 20 else n
-        kmeans = KMeans(n_clusters=n, random_state=0).fit(np.array(self.mse_buffer).reshape(-1, 1))
-        centers = kmeans.cluster_centers_.reshape(-1)
-        centers.sort()
-        print(centers)
-        self.stats[0], self.stats[1] = centers[0], centers[-1]
+        clf = LocalOutlierFactor(n_neighbors=n, contamination=0.05)
+        idx = clf.fit_predict(np.array(self.mse_buffer).reshape(-1, 1))
+        for i in range(len(self.mse_buffer)):
+            if idx[i] == -1:
+                continue
+            if self.mse_buffer[i] > self.stats[1]:
+                self.stats[1] = self.mse_buffer[i]
+            if self.mse_buffer[i] < self.stats[0]:
+                self.stats[0] = self.mse_buffer[i]
         with open(self.stats_path, 'w') as f:
             writer = csv.writer(f)
             writer.writerow(self.stats)
 
-    # def adjust(self, X):
-    #     Y = self.model.predict(X)
-    #     mse = mean_squared_error(X[0], Y[0])
-    #     print('Calculating mse of {}: {}'.format(self.key, mse))
-    #     # if mse >= self.stats[0]:
-    #     #     self.stats[0] += 0.001
-    #     # else:
-    #     #     self.stats[0] -= 0.003
-    #     # if mse <= self.stats[1]:
-    #     #     self.stats[1] -= 0.001
-    #     # else:
-    #     #     self.stats[1] += 0.003
-    #     print(self.stats)
-    #     with open(self.stats_path, 'w') as f:
-    #         writer = csv.writer(f)
-    #         writer.writerow(self.stats)
-
     def execute(self, X):
+        start = time.time()
         Y = self.model.predict(X)
-        mse = mean_squared_error(X[0], Y[0])
-        print('Execute on {}: {}'.format(self.key, mse))
-        # avg, sigma = self.scaler.mean_, 1
-        # min_max = 'Normal' if self.stats[3] >= mse >= self.stats[4] else 'Malicious'
-        # avg = self.stats[1] / self.stats[0]
-        # sigma = sqrt(self.stats[2] / self.stats[0] - avg * avg)
-        # one_sigma = 'Normal' if avg + sigma >= mse >= avg - sigma else 'Malicious'
-        # two_sigma = 'Normal' if avg + sigma * 2 >= mse >= avg - sigma * 2 else 'Malicious'
-        # three_sigma = 'Normal' if avg + sigma * 3 >= mse >= avg - sigma * 3 else 'Malicious'
-        # one_sigma = 'Normal' if avg + sigma >= self.scaler.transform(np.array([[mse]]))[0] >= avg - sigma else 'Malicious'
-        # two_sigma = 'Normal' if avg + sigma * 2 >= self.scaler.transform(np.array([[mse]]))[0] >= avg - sigma * 2 else 'Malicious'
-        # three_sigma = 'Normal' if avg + sigma * 3 >= self.scaler.transform(np.array([[mse]]))[0] >= avg - sigma * 3 else 'Malicious'
-        result = 'Normal' if self.stats[0] <= mse <= self.stats[1] else 'Malicious'
+        dur = time.time() - start
         with open(self.eval_path, 'a') as f:
-            writer = csv.writer(f)
-            # writer.writerow([str(mse), min_max, one_sigma, two_sigma, three_sigma])
-            # writer.writerow([str(mse), one_sigma, two_sigma, three_sigma])
-            writer.writerow([str(mse), result])
+            for x, y in zip(X, Y):
+                mse = mean_squared_error(x, y)
+                print('Execute on {}: {}'.format(self.key, mse))
+                result = 'Normal' if self.stats[0] <= mse <= self.stats[1] else 'Malicious'
+                writer = csv.writer(f)
+                writer.writerow([str(mse), result])
+                # writer.writerow([str(dur)])
 
     def feature(self, X):
         Y = self.model.output_feature(X)
