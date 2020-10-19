@@ -6,24 +6,22 @@ returns a sequence for detection when a flow fills up the length.
 __author__ = 'Ruoyu Li'
 
 from scapy.all import *
-import numpy as np
-import sys
 import os
 import csv
 import random
 from collections import deque
-from detector import Detector
+from detector import Detector, DetectorSinglePacket
 
 random.seed(7)
 
 
 class FlowHandler(object):
-    def __init__(self, packet_length=1500, seq_length=6, batch_size=128, epochs=10, config=None, mode='T'):
+    def __init__(self, seq_length=6, config=None, mode='T'):
         super(FlowHandler, self).__init__()
-        self.packet_length = packet_length
+        self.packet_length = 1500
         self.seq_length = seq_length
-        self.batch_size = batch_size
-        self.epochs = epochs
+        self.batch_size = 128
+        self.epochs = 50
         self.flow_dict = {}
         self.ip_to_domain = {}
         self.dev_to_domain = {}
@@ -39,7 +37,6 @@ class FlowHandler(object):
 
         self.dev_to_det = {}
         self.detectors = {}
-        # self.device_list = {}
         if config:
             with open(config, 'r') as f:
                 reader = csv.reader(f)
@@ -76,12 +73,13 @@ class FlowHandler(object):
             return
         if TCP not in packet and UDP not in packet:
             return
-        if (direction == 0 and packet[IP].dst.startswith('192.168.')) or (
-                direction == 1 and packet[IP].src.startswith('192.168.')) or (
-                direction == 0 and packet[IP].dst == '255.255.255.255') or (
-                direction == 0 and packet[IP].dst == '239.255.255.250'):
+        if packet[IP].dst.startswith('192.168.') or \
+                packet[IP].dst == '255.255.255.255' or \
+                packet[IP].dst == '239.255.255.250' or \
+                packet[IP].dst.startswith('224.0.'):
             if packet[Ether].src != '3c:33:00:98:ee:fd' and packet[Ether].dst != '3c:33:00:98:ee:fd' and \
-                    packet[Ether].src != '00:50:56:be:02:54' and packet[Ether].dst != '00:50:56:be:02:54':
+                    packet[Ether].src != '00:50:56:be:02:54' and packet[Ether].dst != '00:50:56:be:02:54' and \
+                    packet[Ether].src != 'b8:27:eb:8b:b1:2c' and packet[Ether].dst != 'b8:27:eb:8b:b1:2c':
                 return
         if DHCP in packet or BOOTP in packet:
             return
@@ -164,33 +162,31 @@ class FlowHandler(object):
                 idx2 = len(packet[proto]) - len(packet.load)
             else:
                 idx2 = len(packet[proto])
-            packet_bytes = packet_bytes[:idx1 + idx2] + \
-                           b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
-        # TODO
-        # packet_bytes = packet[Raw].build()
+            packet_bytes = packet_bytes[:idx1 + idx2] + b'\x00' * (20 - idx2) + packet_bytes[idx1 + idx2:]
+
         # Padding or truncating to packet_length bytes, and normalize
         packet_bytes = packet_bytes + b'\x00' * (self.packet_length - len(packet_bytes)) if len(
             packet_bytes) < self.packet_length else packet_bytes[:self.packet_length]
         byte_vector = [x / 255.0 for x in list(packet_bytes)]
         return byte_vector
 
-    def emit(self, addr, seq):
+    def emit(self, addr, seq, info=None):
         if addr not in self.dev_to_det:
             key = hash(random.random())
             print('Create a new detector {}'.format(key))
             self.dev_to_det[addr] = key
-            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
+            det = Detector(key, self.seq_length)
             self.detectors[key] = det
         elif self.dev_to_det[addr] not in self.detectors:
             key = self.dev_to_det[addr]
             print('Create a new detector {}'.format(key))
             self.dev_to_det[addr] = key
-            det = Detector(key, self.packet_length, self.seq_length, self.batch_size, self.epochs)
+            det = Detector(key, self.seq_length)
             self.detectors[key] = det
         else:
             det = self.detectors[self.dev_to_det[addr]]
 
-        det.update_buffer(list(seq), self.mode)
+        det.update_buffer(list(seq), self.mode, info)
 
     def dnsrr_process(self, addr, packet):
         if not packet.qd:
@@ -212,12 +208,6 @@ class FlowHandler(object):
                 self.ip_to_domain[ip] = domain
 
     def wrap_up(self):
-        if self.mode == 'T':
-            for key in self.detectors:
-                det = self.detectors[key]
-                det.save()
-        elif self.mode == 'S':
-            for addr in self.dev_to_domain:
-                key = self.dev_to_det[addr]
-                det = self.detectors[key]
-                det.set_threshold(len(self.dev_to_domain[addr]))
+        for key in self.detectors:
+            det = self.detectors[key]
+            det.wrap_up(self.mode)

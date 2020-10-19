@@ -1,0 +1,134 @@
+ADDRESS,NAME,CATEGORY
+70:2c:1f:3b:36:53,fridge,Appliance
+c0:97:27:81:67:99,washer,Appliance
+c0:97:27:73:aa:38,dryer,Appliance
+b4:e6:2a:27:34:b7,dishwasher,Appliance
+0c:2a:69:0e:91:16,ikettle,Appliance
+20:f8:5e:cc:18:1f,brewer,Appliance
+dc:4f:22:28:b6:5b,sousvide,Appliance
+d8:28:c9:10:b5:60,microwave,Appliance
+f0:b4:29:41:ec:d7,xiaomi-cleaner,Appliance
+7c:49:eb:35:7a:49,xiaomi-ricecooker,Appliance
+40:31:3c:df:7b:b7,xiaomi-induction,Appliance
+00:fc:5c:e0:81:86,microseven-camera,Camera
+98:84:e3:e4:35:bd,ring-doorbell,Camera
+9c:8e:cd:0a:33:1b,amcrest-cam-wired,Camera
+b0:fc:0d:c9:00:4c,cloudcam,Camera
+b0:d5:9d:b9:f0:b4,yi-camera,Camera
+78:a5:dd:1a:15:19,wansview-cam-wired,Camera
+00:03:7f:4f:c6:b5,blink-security-hub,Camera
+f4:b8:5e:31:73:db,blink-camera,Camera
+00:0c:43:20:32:bb,luohe-spycam,Camera
+ae:ca:06:08:d3:e6,lefun-cam-wired,Camera
+7c:c7:09:56:6e:48,zmodo-doorbell,Camera
+48:46:c1:1c:47:d3,ubell-doorbell,Camera
+00:12:17:e9:e9:a6,icsee-doorbell,Camera
+ec:71:db:eb:40:bf,reolink-cam-wired,Camera
+24:fd:5b:04:1b:75,smartthings-hub,Gateway
+00:0e:f3:3b:85:e5,insteon-hub,Gateway
+24:fd:5b:02:1d:3a,t-smartthings-hub,Gateway
+00:17:88:68:5f:61,t-philips-hub,Gateway
+00:21:cc:4d:ce:8c,wink-hub2,Gateway
+84:18:26:7d:cf:a2,lightify-hub,Gateway
+34:ce:00:83:99:35,xiaomi-hub,Gateway
+b0:ce:18:27:9f:e4,sengled-hub,Gateway
+ec:fa:bc:2e:81:f7,switchbot-hub,Gateway
+18:b4:30:c8:d8:28,nest-tstat,Home Automation
+50:c7:bf:5a:2e:a0,tplink-plug,Home Automation
+6c:72:20:c5:0a:3f,dlink-mov,Home Automation
+ec:fa:bc:82:20:bb,bulb1,Home Automation
+14:91:82:b4:4b:5f,t-wemo-plug,Home Automation
+50:c7:bf:a0:f3:76,tplink-bulb,Home Automation
+dc:4f:22:c1:58:05,magichome-strip,Home Automation
+34:ce:00:99:9b:83,philips-bulb,Home Automation
+34:ce:00:8b:22:74,xiaomi-strip,Home Automation
+dc:4f:22:5b:1a:a3,smartlife-bulb,Home Automation
+34:29:8f:1e:41:25,meross-dooropener,Home Automation
+bc:dd:c2:38:d:32,smartlife-remote,Home Automation
+f8:da:0c:7b:0a:8f,labelprinter,Office
+18:74:2e:41:4d:35,echodot,Speaker
+00:71:47:c0:91:93,echospot,Speaker
+20:df:b9:5f:41:7e,google-home-mini,Speaker
+fc:65:de:5f:15:0a,t-echodot,Speaker
+fc:a1:83:38:e0:2d,echoplus,Speaker
+d8:f7:10:c3:34:e4,invoke,Speaker
+44:07:0b:50:4d:df,google-home-mini,Speaker
+d4:a3:3d:6b:1e:97,homepod,Speaker
+68:db:f5:90:19:64,echodot3a,Speaker
+68:db:f5:b9:5d:01,echodot3b,Speaker
+38:8c:50:68:d7:5c,lgtv-wired,TV
+88:de:a9:08:03:b9,roku-tv,TV
+6c:56:97:35:39:f4,firetv,TV
+08:66:98:a2:21:9e,appletv,TV
+84:c0:ef:2f:42:cc,samsungtv-wired,TV
+40:31:3c:e6:77:c2,xiaomi-ricecooker,
+00:26:29:00:77:ce,appkettle,
+f0:18:98:36:88:09,pc-anna-wifi,
+78:f8:82:b3:f4:62,nexus5x1,
+a8:b8:6e:4b:c5:1a,nexus5x2,
+64:bc:0c:80:7e:1f,nexus5x3,
+64:bc:0c:65:7c:5f,nexus5x4,
+2c:59:8a:6e:f0:54,nexus5x5,
+2c:59:8a:6e:f1:48,nexus5x6,
+64:1c:ae:50:57:2a,samsungtv-wifi,
+fc:03:9f:93:22:62,samsungtv-wired,
+d0:52:a8:a4:e6:46,smartthings-hub,
+c8:d0:83:21:3d:4b,iphone,
+20:df:b9:13:e5:2e,google-home-mini,
+54:60:09:6f:32:84,google-home,
+78:a5:dd:28:a1:b7,wansview-cam-wired,
+0c:8c:24:0b:be:fb,yi-camera,
+00:03:7f:96:d8:ec,blink-security-hub,
+f4:b8:5e:68:8f:35,blink-camera,
+70:ee:50:36:98:da,netatmo-weather-station,
+b2:c5:54:12:33:40,dlink-camera,
+58:ef:68:99:7d:ed,t-wemo-plug,
+00:0e:f3:2c:d4:04,insteon-hub,
+ae:ca:06:0e:ec:89,bosiwo-camera-wired,
+00:0c:43:03:51:be,bosiwo-camera-wifi,
+ec:b5:fa:00:98:da,t-philips-hub,
+c8:3a:6b:fa:1c:00,roku-tv,
+84:18:26:7c:1a:56,lightify-hub,
+50:c7:bf:ca:3f:9d,tplink-bulb,
+b0:ce:18:20:43:bf,sengled-hub,
+68:c6:3a:ba:c2:6b,sousvide,
+cc:f7:35:49:f4:05,echodot,
+5c:41:5a:29:ad:97,echospot,
+00:fc:8b:84:22:10,echoplus,
+b0:f1:ec:d4:26:ae,allure-speaker,
+50:c7:bf:b1:d2:78,tplink-plug,
+b0:be:76:be:f2:aa,tplink-plug2,
+fc:ee:e6:2e:23:a3,charger-camera,
+78:11:dc:76:a7:08,xiaomi-cam,
+78:11:dc:76:69:b0,xiaomi-cam,
+44:23:7c:4c:6a:5f,xiaomi-cam,
+cc:f7:35:25:af:4d,firetv,
+f0:45:da:36:e6:23,ring-doorbell,
+dc:4f:22:89:fc:e7,magichome-strip,
+0c:2a:69:11:01:ba,smarter-coffee-mach,
+7c:49:eb:88:da:82,xiaomi-hub,
+7c:49:eb:22:30:9c,xiaomi-plug,
+50:32:37:b8:c7:0f,appletv,
+b8:2c:a0:28:3e:6b,honeywell-thermostat,
+64:16:66:2a:98:62,nest-tstat,
+14:6b:9c:c6:ec:a6,wansview-cam-wifi,
+78:11:dc:ec:a3:ab,xiaomi-cleaner,
+ec:fa:bc:2e:85:5b,switchbot-hub,
+3c:71:bf:25:c5:60,smartlife-bulb,
+58:b3:fc:5e:ca:74,icsee-doorbell,
+48:46:c1:1c:46:a5,ubell-doorbell,
+34:29:8f:1c:f3:9c,meross-dooropener,
+68:c6:3a:e4:85:61,smartlife-remote,
+ec:71:db:49:af:ee,reolink-cam-wired,
+b0:be:76:c1:ac:6a,tplink-plug-pow,
+d8:0d:17:56:b1:76,tplink-plug-pow,
+d8:0d:17:56:a9:81,tplink-plug-pow,
+d8:0d:17:86:01:4a,tplink-plug-pow,
+b0:be:76:c1:a3:86,tplink-plug-pow,
+b0:be:76:c1:ac:0e,tplink-plug-pow,
+cc:f7:35:8c:42:6e,hb-echodot,
+68:9a:87:a5:fa:25,hb-echodot,
+fc:49:2d:1a:78:6a,hb-echodot,
+4c:17:44:ec:0b:82,hb-echodot,
+b0:fc:0d:c3:30:8d,hb-echodot,
+68:37:e9:01:5a:23,hb-echodot,

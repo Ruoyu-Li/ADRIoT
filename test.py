@@ -1,24 +1,25 @@
 """
-This file is the main function to run the system.
+This file is to simulate detection on attack traffic.
 """
 __author__ = 'Ruoyu Li'
 
 from capturer import PacketCapturer
 from handler import FlowHandler
-import sys
 import os
 import csv
 
 # os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 dev_name = [
     'appletv',
-    'google-home-mini',
     'nest-tstat',
     't-wemo-plug',
     'tplink-bulb',
     'tplink-plug',
     'zmodo-doorbell',
-    'echoplus'
+    'echoplus',
+    'roku-tv',
+    'sengled-hub',
+    'echospot',
 ]
 attacks = [
     'infection',
@@ -28,22 +29,23 @@ attacks = [
     'scan',
     'os',
     'data',
-    'keylogging'
+    'keylogging',
+    'xbash'
 ]
 seq_length = 10
 config = 'config/config_{}.csv'.format(seq_length)
+dir_path = 'evaluation_{}'.format(seq_length)
 
 cap = PacketCapturer('pcap')
 for d in dev_name:
-    eval_path = os.path.join('evaluation_{}'.format(seq_length), d + '_test.csv')
-    # eval_path = os.path.join('evaluation', d + '.csv')
+    eval_path = os.path.join(dir_path, d + '_test.csv')
     with open(config, 'w') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerow(['3c:33:00:98:ee:fd', d])
         writer.writerow(['00:50:56:be:02:54', d])
+        writer.writerow(['b8:27:eb:8b:b1:2c', d])
     for att in attacks:
-        flow_handler = FlowHandler(packet_length=1500, seq_length=seq_length, batch_size=128, epochs=50, config=config,
-                                   mode='E')
+        flow_handler = FlowHandler(seq_length=seq_length, config=config, mode='E')
         cap.capture('../iot-data-processed/attack/{}/001.pcap'.format(att), flow_handler)
-        os.rename(eval_path, os.path.join('evaluation_{}'.format(seq_length), d + '_{}.csv'.format(att)))
-        # os.rename(eval_path, os.path.join('evaluation', d + '_{}.csv'.format(att)))
+        flow_handler.wrap_up()
+        os.rename(eval_path, eval_path.replace('test', att+'_0'))
