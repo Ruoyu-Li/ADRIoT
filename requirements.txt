@@ -39,7 +39,7 @@ tb-nightly==2.3.0a20200709
 tensorboard==2.0.2
 tensorboard-plugin-wit==1.7.0
 tensorflow-estimator==2.0.1
-tensorflow-gpu==2.0.3
+tensorflow-gpu==2.7.2
 termcolor==1.1.0
 tf-estimator-nightly==2.4.0.dev2020070901
 tf-nightly==2.4.0.dev20200709
